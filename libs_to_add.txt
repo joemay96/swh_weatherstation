@@ -9,3 +9,8 @@ Dadurch auch:
 - TFT
 
 Die 6 LIbs müssten im Lib Ordner sein, dann müsste alles funktionieren
+
+Für Temperatursensor:
+- DHT(Lib)
+und 
+- DHT sensor library by Adafruit
