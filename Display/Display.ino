@@ -24,6 +24,7 @@ SCA - D1
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+
 /*#include <SPI.h> */
 // #define BME_SCK 14
 // #define BME_MISO 12
@@ -50,10 +51,31 @@ DHT_Unified dht(T_H_PIN, DHT_TYPE);
 #define LightPin A0
 int lightSensorValue = 0;
 
+//Rotary
+// D8, RX, TX
+#define ROTARY_SW 1
+#define ROTARY_DT 3
+#define ROTARY_CLK D1
+int rotaryCounter = 0;
+int rotaryCurrentState;
+int rotaryInitState;
+unsigned long debounceDelay = 0;
+unsigned long lastButtonPress = 0;
+
+
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup(void) {
-  Serial.begin(115200);
+  //********** CHANGE PIN FUNCTION  TO GPIO **********
+  // https://arduino.stackexchange.com/questions/29938/how-to-i-make-the-tx-and-rx-pins-on-an-esp-8266-01-into-gpio-pins
+  //GPIO 1 (TX) swap the pin to a GPIO.
+  pinMode(1, FUNCTION_3); 
+  // To swap back pinMode(1, FUNCTION_0); 
+  //GPIO 3 (RX) swap the pin to a GPIO.
+  pinMode(3, FUNCTION_3); 
+  // to swap back pinMode(3, FUNCTION_0); 
+  //**************************************************
+  Serial.begin(19200);
 
   /* Display */
   // tft.setRotation(tft.getRotation()+1);
@@ -81,6 +103,16 @@ void setup(void) {
   // }
   // delayTime = 1000;
 
+  // Rotray Sensor
+  pinMode(ROTARY_CLK, INPUT);
+  pinMode(ROTARY_DT, INPUT);
+  pinMode(ROTARY_SW, INPUT_PULLUP);
+  // Read the initial state of CLK
+  rotaryInitState = digitalRead(ROTARY_CLK);
+  attachInterrupt(0, encoder_value, CHANGE);
+  attachInterrupt(1, encoder_value, CHANGE);
+  // attachPCINT(digitalPinToPCINT(ROTARY_SW), button_press, CHANGE);
+
 }
 
 void loop() {
@@ -92,6 +124,15 @@ void loop() {
   //pressureSensorValues();
   // Lightsensor
   lightSensorRead();
+
+  //Rotray
+  int btnState = digitalRead(ROTARY_SW);
+  if (btnState == LOW) {
+      if (millis() - lastButtonPress > 50) {
+          Serial.println("Button pressed!");
+      }
+      lastButtonPress = millis();
+  }
 }
 
 void printToDisplay() {
@@ -150,9 +191,46 @@ void pressureSensorValues() {
 // Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
 // Es sei denn ich schalte sie alle parallel und der Strom sucht sich den Pfad mit dem geringsten Widerstand und daher zählt nur der Wert mit
 // dem hellsten Wert?! :D 
+// S.90-92 Reihenshcaltung
+// S.93-97 Parallelschaltung
+// ==> Reihenschaltung!
+
 void lightSensorRead() {
   lightSensorValue = analogRead(LightPin);
   Serial.print("LightSensor = ");
   Serial.println(lightSensorValue);
   delay(1000);
+}
+
+// functions for rotary sensor
+void button_press()
+{
+  int buttonVal = digitalRead(ROTARY_SW);
+  //If we detect LOW signal, button is pressed
+  if (buttonVal == LOW) {
+    if (millis() - debounceDelay > 200) {
+      Serial.println("Button pressed!");
+    }
+    debounceDelay = millis();
+  }
+}
+
+void encoder_value() {
+  // Read the current state of CLK
+  rotaryCurrentState = digitalRead(ROTARY_CLK);
+  // If last and current state of CLK are different, then we can be sure that the pulse occurred
+  if (rotaryCurrentState != rotaryInitState  && rotaryCurrentState == 1) {
+    // Encoder is rotating counterclockwise so we decrement the counter
+    if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
+      rotaryCounter ++;
+    } else {
+      // Encoder is rotating clockwise so we increment the counter
+      rotaryCounter --;
+    }
+    // print the value in the serial monitor window
+    Serial.print("Counter: ");
+    Serial.println(rotaryCounter);
+  }
+  // Remember last CLK state for next cycle
+  rotaryInitState = rotaryCurrentState;
 }
