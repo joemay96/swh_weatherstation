@@ -9,11 +9,30 @@ Blau [CS]7 -> D5 (GPIO14) - 10
 Grün [LEDA]8 -> 3V
 */
 
+/*
+Pressure at D0 and D1
+SCL - D0
+SCA - D1
+*/
+
 #include <Adafruit_GFX.h>    
 #include <Adafruit_ST7735.h> 
 #include <SPI.h>
 #include <DHT.h>
 #include <DHT_U.h>
+//Pressure
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+/*#include <SPI.h> */
+// #define BME_SCK 14
+// #define BME_MISO 12
+// #define BME_MOSI 13
+// #define BME_CS 15
+#define SEALEVELPRESSURE_HPA (1013.25)
+Adafruit_BME280 bme; // I2C
+unsigned long delayTime;
+
 
 #define TFT_CS    D3//10
 #define TFT_RST   D4//8  
@@ -27,12 +46,14 @@ Grün [LEDA]8 -> 3V
 #define DHT_TYPE DHT22
 DHT_Unified dht(T_H_PIN, DHT_TYPE);
 
-//Pressure Sensor
+//Lightsensor
+#define LightPin A0
+int lightSensorValue = 0;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup(void) {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   /* Display */
   // tft.setRotation(tft.getRotation()+1);
@@ -51,13 +72,26 @@ void setup(void) {
   // Temp und Humidiy
   dht.begin();
   
+  // Pressure and Humidity
+  /* Wegen Pressure Sensor herausgeschmissen  */
+  // bool status = bme.begin(0x76);  
+  // if (!status) {
+  //   Serial.println("Could not find a valid BME280 sensor, check wiring!");
+  //   while (1);
+  // }
+  // delayTime = 1000;
+
 }
 
 void loop() {
   // Display
   printToDisplay();
   // Temp and Humidity
-  getHumidityAndTemp();
+  // getHumidityAndTemp();
+  // Pressure Sensor
+  //pressureSensorValues();
+  // Lightsensor
+  lightSensorRead();
 }
 
 void printToDisplay() {
@@ -90,4 +124,35 @@ void getHumidityAndTemp() {
   Serial.print(t);
   Serial.println(" *C ");
   delay(2000);
+}
+
+void pressureSensorValues() {
+  Serial.print("Temperature = ");
+  Serial.print(bme.readTemperature());
+  Serial.println(" *C");
+  
+  Serial.print("Pressure = ");
+  Serial.print(bme.readPressure() / 100.0F);
+  Serial.println(" hPa");
+
+  Serial.print("Approx. Altitude = ");
+  Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
+  Serial.println(" m");
+
+  Serial.print("Humidity = ");
+  Serial.print(bme.readHumidity());
+  Serial.println(" %");
+
+  Serial.println();
+}
+
+// Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
+// Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
+// Es sei denn ich schalte sie alle parallel und der Strom sucht sich den Pfad mit dem geringsten Widerstand und daher zählt nur der Wert mit
+// dem hellsten Wert?! :D 
+void lightSensorRead() {
+  lightSensorValue = analogRead(LightPin);
+  Serial.print("LightSensor = ");
+  Serial.println(lightSensorValue);
+  delay(1000);
 }

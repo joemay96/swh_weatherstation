@@ -14,3 +14,6 @@ Für Temperatursensor:
 - DHT(Lib)
 und 
 - DHT sensor library by Adafruit
+
+Pressure and Humidity:
+- Adafruit BME280 Library
