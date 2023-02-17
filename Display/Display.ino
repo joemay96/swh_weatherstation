@@ -20,19 +20,20 @@ SCA - D1
 #include <SPI.h>
 #include <DHT.h>
 #include <DHT_U.h>
-//Pressure
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+//! Brauche ich nicht mehr - Pressure
+// #include <Wire.h>
+// #include <Adafruit_Sensor.h>
+// #include <Adafruit_BME280.h>
 
+//! Herausgelöscht
 /*#include <SPI.h> */
 // #define BME_SCK 14
 // #define BME_MISO 12
 // #define BME_MOSI 13
 // #define BME_CS 15
-#define SEALEVELPRESSURE_HPA (1013.25)
-Adafruit_BME280 bme; // I2C
-unsigned long delayTime;
+// #define SEALEVELPRESSURE_HPA (1013.25)
+// Adafruit_BME280 bme; // I2C
+// unsigned long delayTime;
 
 
 #define TFT_CS    D3//10
@@ -43,7 +44,7 @@ unsigned long delayTime;
 #define TFT_MOSI D7//11   
 
 //TEMP
-#define T_H_PIN D2
+#define T_H_PIN D2 // -> vielleicht kann ich den auf D0 schalten
 #define DHT_TYPE DHT22
 DHT_Unified dht(T_H_PIN, DHT_TYPE);
 
@@ -53,12 +54,13 @@ int lightSensorValue = 0;
 
 //Rotary
 // D8, RX, TX
-#define ROTARY_SW 1
+#define ROTARY_SW 5//D1
 #define ROTARY_DT 3
-#define ROTARY_CLK D1
+#define ROTARY_CLK D5
 int rotaryCounter = 0;
 int rotaryCurrentState;
-int rotaryInitState;
+int rotaryLastState;
+String rotaryCurrentDir ="";
 unsigned long debounceDelay = 0;
 unsigned long lastButtonPress = 0;
 
@@ -75,7 +77,7 @@ void setup(void) {
   pinMode(3, FUNCTION_3); 
   // to swap back pinMode(3, FUNCTION_0); 
   //**************************************************
-  Serial.begin(19200);
+  Serial.begin(9600);
 
   /* Display */
   // tft.setRotation(tft.getRotation()+1);
@@ -92,7 +94,7 @@ void setup(void) {
   delay(1000);
 
   // Temp und Humidiy
-  dht.begin();
+  // dht.begin();
   
   // Pressure and Humidity
   /* Wegen Pressure Sensor herausgeschmissen  */
@@ -107,12 +109,12 @@ void setup(void) {
   pinMode(ROTARY_CLK, INPUT);
   pinMode(ROTARY_DT, INPUT);
   pinMode(ROTARY_SW, INPUT_PULLUP);
-  // Read the initial state of CLK
-  rotaryInitState = digitalRead(ROTARY_CLK);
-  attachInterrupt(0, encoder_value, CHANGE);
-  attachInterrupt(1, encoder_value, CHANGE);
-  // attachPCINT(digitalPinToPCINT(ROTARY_SW), button_press, CHANGE);
 
+  // Read the initial state of CLK
+  rotaryLastState = digitalRead(ROTARY_CLK);
+  Serial.println(rotaryLastState);
+  // ROTARTY_SW = 5
+  attachInterrupt(digitalPinToInterrupt(5), switch_interrupt, CHANGE);
 }
 
 void loop() {
@@ -123,16 +125,34 @@ void loop() {
   // Pressure Sensor
   //pressureSensorValues();
   // Lightsensor
-  lightSensorRead();
+  // lightSensorRead();
 
-  //Rotray
-  int btnState = digitalRead(ROTARY_SW);
-  if (btnState == LOW) {
-      if (millis() - lastButtonPress > 50) {
-          Serial.println("Button pressed!");
-      }
-      lastButtonPress = millis();
+  //! Rotray -> Brauche ich eigentlich auch nicht mehr - Ich muss hier den Rotary dreh Ding erkennen 
+  // int btnState = digitalRead(ROTARY_SW);
+  // if (btnState == LOW) {
+  //     if (millis() - lastButtonPress > 50) {
+  //         Serial.println("Button pressed!");
+  //     }
+  //     lastButtonPress = millis();
+  // }
+  /*rotaryCurrentState = digitalRead(ROTARY_CLK);
+  if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
+    if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
+      rotaryCounter --;
+      rotaryCurrentDir ="CCW";
+    } else {
+        rotaryCounter ++;
+        rotaryCurrentDir ="CW";
+    }
+    // Ausgabe des Rotary Sensors
+    Serial.print("Direction: ");
+		Serial.print(rotaryCurrentDir);
+		Serial.print(" | Counter: ");
+		Serial.println(rotaryCounter);
   }
+  // Remember last CLK state
+	rotaryLastState = rotaryCurrentState;
+  delay(500);*/
 }
 
 void printToDisplay() {
@@ -167,7 +187,8 @@ void getHumidityAndTemp() {
   delay(2000);
 }
 
-void pressureSensorValues() {
+//! Kann raus, weil ich den Sensor nicht mehr verwende
+/*void pressureSensorValues() {
   Serial.print("Temperature = ");
   Serial.print(bme.readTemperature());
   Serial.println(" *C");
@@ -185,7 +206,7 @@ void pressureSensorValues() {
   Serial.println(" %");
 
   Serial.println();
-}
+}*/
 
 // Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
 // Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
@@ -194,7 +215,6 @@ void pressureSensorValues() {
 // S.90-92 Reihenshcaltung
 // S.93-97 Parallelschaltung
 // ==> Reihenschaltung!
-
 void lightSensorRead() {
   lightSensorValue = analogRead(LightPin);
   Serial.print("LightSensor = ");
@@ -215,11 +235,12 @@ void button_press()
   }
 }
 
-void encoder_value() {
+// Das kann raus, wenn der Rotary Sensor funktioniert
+/*void encoder_value() {
   // Read the current state of CLK
   rotaryCurrentState = digitalRead(ROTARY_CLK);
   // If last and current state of CLK are different, then we can be sure that the pulse occurred
-  if (rotaryCurrentState != rotaryInitState  && rotaryCurrentState == 1) {
+  if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1) {
     // Encoder is rotating counterclockwise so we decrement the counter
     if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
       rotaryCounter ++;
@@ -232,5 +253,21 @@ void encoder_value() {
     Serial.println(rotaryCounter);
   }
   // Remember last CLK state for next cycle
-  rotaryInitState = rotaryCurrentState;
+  rotaryLastState = rotaryCurrentState;
+}*/
+
+// Function to trigger after the Rotray Interrupt with switch is triggered
+// ISRs need to have ICACHE_RAM_ATTR before the function definition to run the interrupt code in RAM.
+// https://randomnerdtutorials.com/interrupts-timers-esp8266-arduino-ide-nodemcu/
+
+ICACHE_RAM_ATTR void switch_interrupt() {
+  // Code for the standard button state
+  int btnState = digitalRead(ROTARY_SW);
+
+  if (btnState == LOW) {
+      if (millis() - lastButtonPress > 50) {
+          Serial.println("Button pressed!");
+      }
+      lastButtonPress = millis();
+  }
 }
