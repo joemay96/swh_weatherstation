@@ -53,16 +53,31 @@ DHT_Unified dht(T_H_PIN, DHT_TYPE);
 int lightSensorValue = 0;
 
 //Rotary
-// D8, RX, TX
-#define ROTARY_SW 5//D1
-#define ROTARY_DT 3
-#define ROTARY_CLK D5
+#define ROTARY_SW 10//5//D1 //-> KOMMT AUF 3
+#define ROTARY_DT D1//3
+#define ROTARY_CLK D2//1//D5
 int rotaryCounter = 0;
 int rotaryCurrentState;
 int rotaryLastState;
 String rotaryCurrentDir ="";
-unsigned long debounceDelay = 0;
 unsigned long lastButtonPress = 0;
+
+boolean sleepState = false;
+
+// Display output
+int startState = 1;
+
+int rotaryStateChange = 0;
+String rotaryMessage = "Welcome to Weather Woman";
+
+int tempChange = 0;
+String tempMessage = "";
+int tempCounter = 0;
+
+int lightsensorChange = 0;
+int lightCounter = 1000;
+// int lightSensorValue = 0;
+int lastLightsensorValue = 0;
 
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
@@ -77,34 +92,24 @@ void setup(void) {
   pinMode(3, FUNCTION_3); 
   // to swap back pinMode(3, FUNCTION_0); 
   //**************************************************
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   /* Display */
-  // tft.setRotation(tft.getRotation()+1);
   tft.initR(INITR_BLACKTAB);
-  tft.fillScreen(ST7735_BLACK);
-  // tft.setRotation(tft.getRotation()+1);
-  tft.setRotation(1);
-  // rotateText();
-
-  tft.setTextColor(ST7735_WHITE);
+  tft.fillScreen(ST7735_WHITE);
+  // tft.fillScreen(ST7735_BLACK);
+  tft.setTextColor(ST7735_BLACK);
   tft.setTextSize(0);
-  tft.setCursor(30,55);
-  tft.println("Hello World!");  
-  delay(1000);
+  tft.setRotation(1);
+  // tft.setTextColor(ST7735_WHITE);
+  // tft.setTextSize(0);
+  // tft.setCursor(30,55);
+  // tft.println("Hello World!");  
+  // delay(1000);
 
   // Temp und Humidiy
-  // dht.begin();
+  dht.begin();
   
-  // Pressure and Humidity
-  /* Wegen Pressure Sensor herausgeschmissen  */
-  // bool status = bme.begin(0x76);  
-  // if (!status) {
-  //   Serial.println("Could not find a valid BME280 sensor, check wiring!");
-  //   while (1);
-  // }
-  // delayTime = 1000;
-
   // Rotray Sensor
   pinMode(ROTARY_CLK, INPUT);
   pinMode(ROTARY_DT, INPUT);
@@ -112,62 +117,49 @@ void setup(void) {
 
   // Read the initial state of CLK
   rotaryLastState = digitalRead(ROTARY_CLK);
-  Serial.println(rotaryLastState);
-  // ROTARTY_SW = 5
+  // ROTARTY_SW = 3 -> SPÄTER AUF 3 ändern
   attachInterrupt(digitalPinToInterrupt(5), switch_interrupt, CHANGE);
 }
 
 void loop() {
   // Display
-  printToDisplay();
+  if(startState == 1 || rotaryStateChange == 1 || tempChange == 1 || lightsensorChange == 1) {
+    resetState();
+    printToDisplay();
+  }
   // Temp and Humidity
   // getHumidityAndTemp();
-  // Pressure Sensor
-  //pressureSensorValues();
-  // Lightsensor
-  // lightSensorRead();
-
-  //! Rotray -> Brauche ich eigentlich auch nicht mehr - Ich muss hier den Rotary dreh Ding erkennen 
-  // int btnState = digitalRead(ROTARY_SW);
-  // if (btnState == LOW) {
-  //     if (millis() - lastButtonPress > 50) {
-  //         Serial.println("Button pressed!");
-  //     }
-  //     lastButtonPress = millis();
-  // }
-  /*rotaryCurrentState = digitalRead(ROTARY_CLK);
-  if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
-    if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
-      rotaryCounter --;
-      rotaryCurrentDir ="CCW";
-    } else {
-        rotaryCounter ++;
-        rotaryCurrentDir ="CW";
-    }
-    // Ausgabe des Rotary Sensors
-    Serial.print("Direction: ");
-		Serial.print(rotaryCurrentDir);
-		Serial.print(" | Counter: ");
-		Serial.println(rotaryCounter);
-  }
-  // Remember last CLK state
-	rotaryLastState = rotaryCurrentState;
-  delay(500);*/
+  // Lightsensor - works
+  lightSensorRead();
+  // Rotary Sensor
+  rotary();
+  // Wegen Temp Sensor?!
+  // delay(1000);
 }
 
 void printToDisplay() {
-  tft.fillScreen(ST7735_WHITE); 
-  delay(1000);
-  tft.setTextColor(ST7735_BLACK);
-  tft.setTextSize(0);
-  tft.setCursor(30,80);
-  tft.println("Hey you! You got it!");  
-  delay(500);
+  // delay(1000);
+  tft.fillScreen(ST7735_WHITE);
+  tft.setCursor(5,10);
+  tft.println(rotaryMessage);
+  tft.setCursor(5,40);
+  tft.println(tempMessage);
+  tft.setCursor(5,60);
+  tft.println("Lightsensor:");
+  tft.setCursor(80, 60);
+  tft.print(lightSensorValue);      
+  // delay(100);
+}
+
+void resetState() {
+  startState = 0;
+  rotaryStateChange = 0;
+  tempChange = 0;
+  tempCounter = 0;
+  lightsensorChange = 0;
 }
 
 void getHumidityAndTemp() {
-  // float h = dht.Humidity();
-  // float t = dht.Temperature();
   sensors_event_t event;
   dht.humidity().getEvent(&event);
   float h = event.relative_humidity;
@@ -175,38 +167,45 @@ void getHumidityAndTemp() {
   float t = event.temperature;
   // Check if any reads failed and exit early (to try again).
   if (isnan(h) || isnan(t)) {
-    Serial.println("Failed to read from DHT sensor!");
+    tempChange = 1;
+    tempMessage = "Failed to read from DHT sensor!";
     return;
   }
-  Serial.print("Humidity: "); 
-  Serial.print(String(h));
-  Serial.print(" %\t");
-  Serial.print("Temperature: "); 
-  Serial.print(t);
-  Serial.println(" *C ");
-  delay(2000);
+  tempCounter++;
+  if(tempCounter == 50) {
+    tempCounter = 0;
+    Serial.print("Humidity: "); 
+    Serial.print(String(h));
+    Serial.print(" %\t");
+    Serial.print("Temperature: "); 
+    Serial.print(t);
+    Serial.println(" *C ");
+    tempChange = 1;
+    tempMessage = "Humidity: "+String(h) + " | Temperature: " + t + " °C";
+  }
+  // davor delay(2000); - brauche ich das?!
+  delay(500);
 }
 
-//! Kann raus, weil ich den Sensor nicht mehr verwende
-/*void pressureSensorValues() {
-  Serial.print("Temperature = ");
-  Serial.print(bme.readTemperature());
-  Serial.println(" *C");
-  
-  Serial.print("Pressure = ");
-  Serial.print(bme.readPressure() / 100.0F);
-  Serial.println(" hPa");
-
-  Serial.print("Approx. Altitude = ");
-  Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
-  Serial.println(" m");
-
-  Serial.print("Humidity = ");
-  Serial.print(bme.readHumidity());
-  Serial.println(" %");
-
-  Serial.println();
-}*/
+void rotary() {
+  rotaryCurrentState = digitalRead(ROTARY_CLK);
+  if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
+    rotaryStateChange = 1;    
+    if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
+      rotaryCounter--;
+      rotaryCurrentDir = "CCW";
+    } else {
+        rotaryCounter++;
+        rotaryCurrentDir = "CW";
+    }
+    // Ausgabe des Rotary Sensors
+    rotaryMessage = "Direction: " + rotaryCurrentDir + " | Counter: " + rotaryCounter;
+    //Serial.println(rotaryMessage);
+  }
+  // Remember last CLK state
+	rotaryLastState = rotaryCurrentState;
+  delay(1);
+}
 
 // Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
 // Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
@@ -216,22 +215,17 @@ void getHumidityAndTemp() {
 // S.93-97 Parallelschaltung
 // ==> Reihenschaltung!
 void lightSensorRead() {
-  lightSensorValue = analogRead(LightPin);
-  Serial.print("LightSensor = ");
-  Serial.println(lightSensorValue);
-  delay(1000);
-}
-
-// functions for rotary sensor
-void button_press()
-{
-  int buttonVal = digitalRead(ROTARY_SW);
-  //If we detect LOW signal, button is pressed
-  if (buttonVal == LOW) {
-    if (millis() - debounceDelay > 200) {
-      Serial.println("Button pressed!");
-    }
-    debounceDelay = millis();
+  lightCounter++;
+  Serial.println(lightCounter);
+  if(lightCounter >= 10000) {
+    lightCounter = 0;
+    lightSensorValue = analogRead(LightPin);
+    Serial.println("Light ^^");
+    Serial.println(lightSensorValue);
+    // if(lightSensorValue > lastLightsensorValue+10 || lightSensorValue < lastLightsensorValue-10) {
+    //   lastLightsensorValue = lightSensorValue;
+      lightsensorChange = 1;
+    // }
   }
 }
 
@@ -266,6 +260,8 @@ ICACHE_RAM_ATTR void switch_interrupt() {
 
   if (btnState == LOW) {
       if (millis() - lastButtonPress > 50) {
+          //TODO: Start and stop the var to boot up or shut down
+          // status = !status;
           Serial.println("Button pressed!");
       }
       lastButtonPress = millis();
