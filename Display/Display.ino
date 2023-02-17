@@ -63,8 +63,11 @@ String rotaryCurrentDir ="";
 unsigned long lastButtonPress = 0;
 
 // Geschwindigkeitssensor
-#define GESCH D1 // -> Kommt AUF TX = GPIO1
-
+#define WINDSPEED D1 // -> Kommt AUF TX = GPIO1
+int speedCum = 0;
+int speedTimespan = 0;
+double speedQuot = 0;
+int speedUpdate = 0;
 
 boolean sleepState = false;
 
@@ -127,7 +130,7 @@ void setup(void) {
 
 void loop() {
   // Display
-  if(startState == 1 || rotaryStateChange == 1 || tempChange == 1 || lightsensorChange == 1) {
+  if(startState == 1 || rotaryStateChange == 1 || tempChange == 1 || lightsensorChange == 1 || speedUpdate == 1) {
     resetState();
     printToDisplay();
   }
@@ -139,6 +142,7 @@ void loop() {
   rotary();
   // Wegen Temp Sensor?!
   // delay(1000);
+  windspeed();
 }
 
 void printToDisplay() {
@@ -148,9 +152,13 @@ void printToDisplay() {
   tft.println(rotaryMessage);
   tft.setCursor(5,40);
   tft.println(tempMessage);
-  tft.setCursor(5,60);
+  tft.setCursor(5, 60);
+  tft.println("Windgeschwindigkeit: ");
+  tft.setCursor(130, 60);
+  tft.println(speedQuot);
+  tft.setCursor(5,80);
   tft.println("Lightsensor:");
-  tft.setCursor(80, 60);
+  tft.setCursor(80, 80);
   tft.print(lightSensorValue);      
   // delay(100);
 }
@@ -161,6 +169,7 @@ void resetState() {
   tempChange = 0;
   tempCounter = 0;
   lightsensorChange = 0;
+  speedUpdate = 0;
 }
 
 void getHumidityAndTemp() {
@@ -228,6 +237,24 @@ void lightSensorRead() {
       lastLightsensorValue = lightSensorValue;
       lightsensorChange = 1;
     }
+  }
+}
+
+// Windgeschiwindigkeitssensor
+void windspeed() {
+  int speed = digitalRead(WINDSPEED);
+  speedTimespan++;
+  speedCum = speedCum + speed;
+  
+  if(speedTimespan >= 10000) {
+    speedQuot = (double)(speedCum*10)/(double)speedTimespan;
+    Serial.print("SpeedCum: ");
+    Serial.println(speedCum);
+    Serial.print("SpeedQuot: ");
+    Serial.println(speedQuot);
+    speedUpdate = 1;
+    speedTimespan = 0;
+    speedCum = 0;
   }
 }
 
