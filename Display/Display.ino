@@ -62,6 +62,10 @@ int rotaryLastState;
 String rotaryCurrentDir ="";
 unsigned long lastButtonPress = 0;
 
+// Geschwindigkeitssensor
+#define GESCH D1 // -> Kommt AUF TX = GPIO1
+
+
 boolean sleepState = false;
 
 // Display output
@@ -216,39 +220,16 @@ void rotary() {
 // ==> Reihenschaltung!
 void lightSensorRead() {
   lightCounter++;
-  Serial.println(lightCounter);
   if(lightCounter >= 10000) {
     lightCounter = 0;
     lightSensorValue = analogRead(LightPin);
-    Serial.println("Light ^^");
-    Serial.println(lightSensorValue);
-    // if(lightSensorValue > lastLightsensorValue+10 || lightSensorValue < lastLightsensorValue-10) {
-    //   lastLightsensorValue = lightSensorValue;
+    // Serial.println(lightSensorValue);
+    if(lightSensorValue > lastLightsensorValue+10 || lightSensorValue < lastLightsensorValue-10) {
+      lastLightsensorValue = lightSensorValue;
       lightsensorChange = 1;
-    // }
+    }
   }
 }
-
-// Das kann raus, wenn der Rotary Sensor funktioniert
-/*void encoder_value() {
-  // Read the current state of CLK
-  rotaryCurrentState = digitalRead(ROTARY_CLK);
-  // If last and current state of CLK are different, then we can be sure that the pulse occurred
-  if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1) {
-    // Encoder is rotating counterclockwise so we decrement the counter
-    if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
-      rotaryCounter ++;
-    } else {
-      // Encoder is rotating clockwise so we increment the counter
-      rotaryCounter --;
-    }
-    // print the value in the serial monitor window
-    Serial.print("Counter: ");
-    Serial.println(rotaryCounter);
-  }
-  // Remember last CLK state for next cycle
-  rotaryLastState = rotaryCurrentState;
-}*/
 
 // Function to trigger after the Rotray Interrupt with switch is triggered
 // ISRs need to have ICACHE_RAM_ATTR before the function definition to run the interrupt code in RAM.
