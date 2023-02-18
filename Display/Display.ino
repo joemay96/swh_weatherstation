@@ -9,42 +9,22 @@ Blau [CS]7 -> D5 (GPIO14) - 10
 Grün [LEDA]8 -> 3V
 */
 
-/*
-Pressure at D0 and D1
-SCL - D0
-SCA - D1
-*/
-
 #include <Adafruit_GFX.h>    
 #include <Adafruit_ST7735.h> 
 #include <SPI.h>
 #include <DHT.h>
 #include <DHT_U.h>
-//! Brauche ich nicht mehr - Pressure
-// #include <Wire.h>
-// #include <Adafruit_Sensor.h>
-// #include <Adafruit_BME280.h>
 
-//! Herausgelöscht
-/*#include <SPI.h> */
-// #define BME_SCK 14
-// #define BME_MISO 12
-// #define BME_MOSI 13
-// #define BME_CS 15
-// #define SEALEVELPRESSURE_HPA (1013.25)
-// Adafruit_BME280 bme; // I2C
-// unsigned long delayTime;
+#define TFT_CS    D3
+#define TFT_RST   D4  
+#define TFT_DC    D6
 
-
-#define TFT_CS    D3//10
-#define TFT_RST   D4//8  
-#define TFT_DC    D6//9 //Weiß ich nicht genau D2?
-
-#define TFT_SCLK D5//13   
-#define TFT_MOSI D7//11   
+#define TFT_SCLK D5   
+#define TFT_MOSI D7   
 
 //TEMP
-#define T_H_PIN D2 // -> vielleicht kann ich den auf D0 schalten
+// !! ausprobieren
+#define T_H_PIN 9//D0 // -> vielleicht kann ich den auf D0 schalten
 #define DHT_TYPE DHT22
 DHT_Unified dht(T_H_PIN, DHT_TYPE);
 
@@ -53,9 +33,10 @@ DHT_Unified dht(T_H_PIN, DHT_TYPE);
 int lightSensorValue = 0;
 
 //Rotary
-#define ROTARY_SW 10//5//D1 //-> KOMMT AUF 3
-#define ROTARY_DT D1//3
-#define ROTARY_CLK D2//1//D5
+#define ROTARY_SW D1
+// !! ausprobieren
+#define ROTARY_DT 15//1 // TX
+#define ROTARY_CLK D2
 int rotaryCounter = 0;
 int rotaryCurrentState;
 int rotaryLastState;
@@ -63,12 +44,14 @@ String rotaryCurrentDir ="";
 unsigned long lastButtonPress = 0;
 
 // Geschwindigkeitssensor
-#define WINDSPEED D1 // -> Kommt AUF TX = GPIO1
+// !! ausprobieren
+#define WINDSPEED 10//3 // RX
 int speedCum = 0;
 int speedTimespan = 0;
 double speedQuot = 0;
 int speedUpdate = 0;
 
+// !! Bring NodeMCU into sleep mode
 boolean sleepState = false;
 
 // Display output
@@ -97,7 +80,11 @@ void setup(void) {
   // To swap back pinMode(1, FUNCTION_0); 
   //GPIO 3 (RX) swap the pin to a GPIO.
   pinMode(3, FUNCTION_3); 
-  // to swap back pinMode(3, FUNCTION_0); 
+  // to swap back pinMode(3, FUNCTION_0);
+  // Switching other pins functioinality to work as standard GPIO Pins
+  pinMode(9, FUNCTION_3); 
+  pinMode(10, FUNCTION_3);
+  pinMode(15, FUNCTION_3);
   //**************************************************
   Serial.begin(115200);
 
@@ -124,18 +111,18 @@ void setup(void) {
 
   // Read the initial state of CLK
   rotaryLastState = digitalRead(ROTARY_CLK);
-  // ROTARTY_SW = 3 -> SPÄTER AUF 3 ändern
+  // !! mit dem rotary verbinden
   attachInterrupt(digitalPinToInterrupt(5), switch_interrupt, CHANGE);
 }
 
 void loop() {
-  // Display
+  // Display - not always reprinting but only changing state after values change
   if(startState == 1 || rotaryStateChange == 1 || tempChange == 1 || lightsensorChange == 1 || speedUpdate == 1) {
     resetState();
     printToDisplay();
   }
   // Temp and Humidity
-  // getHumidityAndTemp();
+  getHumidityAndTemp();
   // Lightsensor - works
   lightSensorRead();
   // Rotary Sensor
@@ -213,7 +200,7 @@ void rotary() {
     }
     // Ausgabe des Rotary Sensors
     rotaryMessage = "Direction: " + rotaryCurrentDir + " | Counter: " + rotaryCounter;
-    //Serial.println(rotaryMessage);
+    Serial.println(rotaryMessage);
   }
   // Remember last CLK state
 	rotaryLastState = rotaryCurrentState;
@@ -222,13 +209,11 @@ void rotary() {
 
 // Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
 // Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
-// Es sei denn ich schalte sie alle parallel und der Strom sucht sich den Pfad mit dem geringsten Widerstand und daher zählt nur der Wert mit
-// dem hellsten Wert?! :D 
-// S.90-92 Reihenshcaltung
-// S.93-97 Parallelschaltung
+// Es sei denn ich schalte sie alle in Reihe und der die Wiederstände werden größer wenn einzelne Sensoren verdeckt werden.
 // ==> Reihenschaltung!
 void lightSensorRead() {
   lightCounter++;
+  // !! vielleicht einen allgemeinen Counter auch für Windspeed machen oder irgendwie mit milis() arbeiten.
   if(lightCounter >= 10000) {
     lightCounter = 0;
     lightSensorValue = analogRead(LightPin);
@@ -269,7 +254,7 @@ ICACHE_RAM_ATTR void switch_interrupt() {
   if (btnState == LOW) {
       if (millis() - lastButtonPress > 50) {
           //TODO: Start and stop the var to boot up or shut down
-          // status = !status;
+          // !! wake NodeMCU or go into deep sleep
           Serial.println("Button pressed!");
       }
       lastButtonPress = millis();
