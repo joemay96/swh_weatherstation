@@ -15,9 +15,9 @@ Grün [LEDA]8 -> 3V
 #include <DHT.h>
 #include <DHT_U.h>
 
-#define TFT_CS    D3
-#define TFT_RST   D4  
-#define TFT_DC    D6
+#define TFT_CS   D3
+#define TFT_RST  D4  
+#define TFT_DC   D6
 
 #define TFT_SCLK D5   
 #define TFT_MOSI D7   
@@ -33,10 +33,10 @@ DHT_Unified dht(T_H_PIN, DHT_TYPE);
 int lightSensorValue = 0;
 
 //Rotary
-#define ROTARY_SW 3//D1
+#define ROTARY_SW 4//D2
 // !! ausprobieren
-#define ROTARY_DT D2 // schauen ob das geht  
-#define ROTARY_CLK D5 //D2 trying to sync the clock
+#define ROTARY_DT 9//D2 // schauen ob das geht  
+#define ROTARY_CLK 3 //D2 trying to sync the clock
 int rotaryCounter = 0;
 int rotaryCurrentState;
 int rotaryLastState;
@@ -70,7 +70,8 @@ int lightCounter = 1000;
 int lastLightsensorValue = 0;
 
 // Global counter for updating values and reprinting the screen
-int COUNTER = 0;
+int COUNTER = 6000;
+int buttonPressed = 0;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
@@ -83,21 +84,11 @@ void setup(void) {
   //GPIO 3 (RX) swap the pin to a GPIO.
   pinMode(3, FUNCTION_3); 
   // to swap back pinMode(3, FUNCTION_0);
-  // Switching other pins functioinality to work as standard GPIO Pins
-  // pinMode(9, FUNCTION_3); 
-  // pinMode(9, FUNCTION_0);
-  // pinMode(10, FUNCTION_0);
-  // pinMode(15, FUNCTION_0);
-  // pinMode(10, FUNCTION_3);
-  // pinMode(10, OUTPUT);
-  // pinMode(10, FUNCTION_3);
-  // pinMode(15, FUNCTION_3); // =D8 funktioniert leider gar nicht, da sind nicht geuploaded werden kann!
-  // pinMode(15, INPUT);
   //**************************************************
-  Serial.begin(115200);
+  // Serial.begin(9600);
 
   /* Display */
-
+  setupDisplay();
   // tft.setTextColor(ST7735_WHITE);
   // tft.setTextSize(0);
   // tft.setCursor(30,55);
@@ -115,7 +106,7 @@ void setup(void) {
   // Read the initial state of CLK
   rotaryLastState = digitalRead(ROTARY_CLK);
   // !! mit dem rotary verbinden -> !! Muss noch gechanged werden
-  attachInterrupt(digitalPinToInterrupt(5), switch_interrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(4), switch_interrupt, CHANGE);
 }
 
 void loop() {
@@ -129,59 +120,56 @@ void loop() {
   getHumidityAndTemp();
   // Lightsensor - works
   lightSensorRead();
+  
   // Rotary Sensor
-  rotary();
+  // rotary();
+
   // Windspeed sensor
   windspeed();
 }
 
 void setupDisplay() {
-  setupDisplay();
   tft.initR(INITR_BLACKTAB);
   tft.fillScreen(ST7735_WHITE);
   // tft.fillScreen(ST7735_BLACK);
   tft.setTextColor(ST7735_BLACK);
-  tft.setTextSize(0);
+  // tft.setTextSize(0);
   tft.setRotation(1);
   // Print inital start
   tft.setCursor(5, 10);
-  tft.println("Welcome to Weather Woman");
-  tft.setCursor(5,30);
-  tft.println("Temperature: ");
-  tft.setCursor(5,50);
-  tft.println("Humidity: ");
-  tft.setCursor(5, 70);
-  tft.println("Windgeschwindigkeit: ");
-  tft.println("Lightsensor:");
-  tft.setCursor(80, 90);
+  tft.setTextSize(2);
+  tft.println("Welcome to");
+  tft.setCursor(30, 40);
+  tft.println("Weather");
+  tft.setCursor(30, 60);
+  tft.println("Woman");
+  tft.setTextSize(0);
 }
 
 void printToDisplay() {
-  // delay(1000);
-  // !! creating a nice start message
-  // tft.fillScreen(ST7735_WHITE); // reset des Displays
+  tft.fillScreen(ST7735_WHITE); // reset des Displays
   tft.setCursor(5,10);
   tft.println(rotaryMessage);
-  // tft.setCursor(5,30);
-  // tft.println("Temperature: ");
+  tft.setCursor(5,30);
+  tft.println("Temperature: ");
   tft.setCursor(130, 30);
   tft.println(temp);
-  // tft.setCursor(5,50);
-  // tft.println("Humidity: ");
+  tft.setCursor(5,50);
+  tft.println("Humidity: ");
   tft.setCursor(130, 50);
   tft.println(humidity);
-  // tft.setCursor(5, 70);
-  // tft.println("Windgeschwindigkeit: ");
+  tft.setCursor(5, 70);
+  tft.println("Windgeschwindigkeit: ");
   tft.setCursor(130, 70);
   tft.println(speedQuot);
   tft.setCursor(5,90);
   tft.println("Lightsensor:");
   tft.setCursor(80, 90);
   tft.print(lightSensorValue);      
-  // tft.setCursor(5, 110);
-  // tft.println("SpeedCum: ");
-  // tft.setCursor(80, 110);
-  // tft.println(speedCum);
+  tft.setCursor(5, 110);
+  tft.println("Button Pressed: ");
+  tft.setCursor(130, 110);
+  tft.println(buttonPressed);
 }
 
 void resetState() {
@@ -192,7 +180,7 @@ void resetState() {
 
 void getHumidityAndTemp() {
   if((COUNTER % 2000) == 0) {
-      sensors_event_t event;
+    sensors_event_t event;
     dht.humidity().getEvent(&event);
     humidity = event.relative_humidity;
     dht.temperature().getEvent(&event);
@@ -208,7 +196,6 @@ void getHumidityAndTemp() {
 
 void rotary() {
   rotaryCurrentState = digitalRead(ROTARY_CLK);
-  Serial.println(rotaryCurrentState);
   if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
     rotaryStateChange = 1;    
     if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
@@ -220,7 +207,7 @@ void rotary() {
     }
     // Ausgabe des Rotary Sensors
     rotaryMessage = "Direction: " + rotaryCurrentDir + " | Counter: " + rotaryCounter;
-    Serial.println(rotaryMessage);
+    // Serial.println(rotaryMessage);
   }
   // Remember last CLK state
 	rotaryLastState = rotaryCurrentState;
@@ -256,10 +243,12 @@ ICACHE_RAM_ATTR void switch_interrupt() {
   int btnState = digitalRead(ROTARY_SW);
 
   if (btnState == LOW) {
-      if (millis() - lastButtonPress > 50) {
+      if (millis() - lastButtonPress > 150) {
           //TODO: Start and stop the var to boot up or shut down
           // !! wake NodeMCU or go into deep sleep
-          Serial.println("Button pressed!");
+          // Serial.println("Button pressed!");
+          buttonPressed++;
+          rotaryStateChange = 1;
       }
       lastButtonPress = millis();
   }
