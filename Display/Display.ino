@@ -23,8 +23,7 @@ Grün [LEDA]8 -> 3V
 #define TFT_MOSI D7   
 
 //TEMP
-// !! ausprobieren
-#define T_H_PIN 1 // -> vielleicht kann ich den auf D0 schalten
+#define T_H_PIN 1
 #define DHT_TYPE DHT22
 DHT_Unified dht(T_H_PIN, DHT_TYPE);
 
@@ -33,10 +32,9 @@ DHT_Unified dht(T_H_PIN, DHT_TYPE);
 int lightSensorValue = 0;
 
 //Rotary
-#define ROTARY_SW 4//D2
-// !! ausprobieren
-#define ROTARY_DT 9//D2 // schauen ob das geht  
-#define ROTARY_CLK 3 //D2 trying to sync the clock
+#define ROTARY_SW 4 // D2
+// #define ROTARY_DT 9 // D2 // schauen ob das geht  
+#define ROTARY_CLK 3 // D2 trying to sync the clock
 int rotaryCounter = 0;
 int rotaryCurrentState;
 int rotaryLastState;
@@ -44,8 +42,7 @@ String rotaryCurrentDir ="";
 unsigned long lastButtonPress = 0;
 
 // Geschwindigkeitssensor
-// !! ausprobieren
-#define WINDSPEED D1 // RX
+#define WINDSPEED D1
 int speedCum = 0;
 double speedQuot = 0;
 
@@ -61,16 +58,14 @@ String rotaryMessage = "";
 int tempChange = 0;
 float temp = 0;
 float humidity = 0;
-// String tempMessage = "";
 int tempCounter = 0;
 
 int lightsensorChange = 0;
 int lightCounter = 1000;
-// int lightSensorValue = 0;
 int lastLightsensorValue = 0;
 
 // Global counter for updating values and reprinting the screen
-int COUNTER = 6000;
+int COUNTER = 60000;
 int buttonPressed = 0;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
@@ -80,39 +75,31 @@ void setup(void) {
   // https://arduino.stackexchange.com/questions/29938/how-to-i-make-the-tx-and-rx-pins-on-an-esp-8266-01-into-gpio-pins
   //GPIO 1 (TX) swap the pin to a GPIO.
   pinMode(1, FUNCTION_3); 
-  // To swap back pinMode(1, FUNCTION_0); 
+  // To swap back pinMode(1, FUNCTION_0);
   //GPIO 3 (RX) swap the pin to a GPIO.
   pinMode(3, FUNCTION_3); 
   // to swap back pinMode(3, FUNCTION_0);
   //**************************************************
-  // Serial.begin(9600);
 
   /* Display */
   setupDisplay();
-  // tft.setTextColor(ST7735_WHITE);
-  // tft.setTextSize(0);
-  // tft.setCursor(30,55);
-  // tft.println("Hello World!");  
-  // delay(1000);
 
   // Temp und Humidiy
   dht.begin();
   
   // Rotray Sensor
   pinMode(ROTARY_CLK, INPUT);
-  pinMode(ROTARY_DT, INPUT);
+  // pinMode(ROTARY_DT, INPUT);
   pinMode(ROTARY_SW, INPUT_PULLUP);
 
   // Read the initial state of CLK
   rotaryLastState = digitalRead(ROTARY_CLK);
-  // !! mit dem rotary verbinden -> !! Muss noch gechanged werden
   attachInterrupt(digitalPinToInterrupt(4), switch_interrupt, CHANGE);
 }
 
 void loop() {
-  // Display - not always reprinting but only changing state after values change
   COUNTER++;
-  if(rotaryStateChange == 1 || COUNTER > 10000) {
+  if(rotaryStateChange == 1 || COUNTER > 100000) {
     resetState();
     printToDisplay();
   }
@@ -147,7 +134,7 @@ void setupDisplay() {
 }
 
 void printToDisplay() {
-  tft.fillScreen(ST7735_WHITE); // reset des Displays
+  tft.fillScreen(ST7735_WHITE);
   tft.setCursor(5,10);
   tft.println(rotaryMessage);
   tft.setCursor(5,30);
