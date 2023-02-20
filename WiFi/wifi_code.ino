@@ -26,7 +26,6 @@ const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
 unsigned long lastTime = 0;
 // Timer set to 10 minutes (600000)
 //unsigned long timerDelay = 600000;
-
 // sende request alle 10 Sekunden -> später kann das auf 600.000 gesetzt werden -> schickt Daten ale 10 Minuten
 unsigned long timerDelay = 10000;
 

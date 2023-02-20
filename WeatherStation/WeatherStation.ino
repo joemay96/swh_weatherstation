@@ -15,6 +15,10 @@ Grün [LEDA]8 -> 3V
 #include <DHT.h>
 #include <DHT_U.h>
 
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+
 #define TFT_CS   D3
 #define TFT_RST  D4  
 #define TFT_DC   D6
@@ -47,6 +51,20 @@ unsigned long lastButtonPress = 0;
 int speedCum = 0;
 double speedQuot = 0;
 
+// WiFi config
+const char* ssid = "iPhone von Josef";
+const char* password = "pw1234567890";
+const char* username = "ww";
+const char* apiKey = "secPW123456VerySecureWeatherStationPassword";
+const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
+// the following variables are unsigned longs because the time, measured in
+// milliseconds, will quickly become a bigger number than can be stored in an int.
+unsigned long lastTime = 0;
+// Timer set to 10 minutes (600000)
+//unsigned long requestTime = 600000;
+// sende request alle 10 Sekunden -> später kann das auf 600.000 gesetzt werden -> schickt Daten ale 10 Minuten
+unsigned long requestTime = 10000;
+
 // Bring NodeMCU into sleep mode
 // https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
 // int deepSleep = 0;
@@ -74,12 +92,12 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 void setup(void) {
   Serial.begin(115200);
   setupWeatherStation();
+  setupWifi();
 }
 
 void loop() {
   COUNTER++;
   if(rotaryStateChange == 1) {
-    // Serial.println(rotaryStateChange);
     rotaryStateChange = 0;
     if(pageCounter%3 == 0) {
       page1();
@@ -101,6 +119,8 @@ void loop() {
   lightSensorRead();
   // Windspeed sensor
   windspeed();
+  // send request to api
+  sendHTTPRequest();
   
   /* Checking for deepSleep
    DeepSleep ist schwierig, da nach gewissen Anforderungen der Arduino wieder aufgeweckt werden muss, um 
@@ -138,6 +158,22 @@ void setupWeatherStation() {
   pinMode(ROTARY_CLK, INPUT);
   pinMode(ROTARY_DT, INPUT);
   rotaryLastState = digitalRead(ROTARY_CLK);
+}
+
+// !! changing Serial to a page -- something special maybe
+void setupWifi() {
+  // Connecting to WiFi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
+ 
+  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
 
 void setupDisplay() {
@@ -233,6 +269,35 @@ void windspeed() {
   int speed = digitalRead(WINDSPEED);
   speedCum = speedCum + speed;
   speedQuot = (double)(speedCum)/(double)1000.0; //!! vielleicht noch anpassen, wenn kostruktion steht
+}
+
+/*
+ * WiFi
+ */
+void sendHTTPRequest() {
+  //Send an HTTP POST request every "requestTime" minutes
+  if ((millis() - lastTime) > requestTime) {
+    //Check WiFi connection status
+    if(WiFi.status() == WL_CONNECTED){
+      WiFiClient client;
+      HTTPClient http;
+      
+      http.begin(client, serverName);
+      http.setAuthorization("ww", apiKey);
+      // If you need an HTTP request with a content type: application/json, use the following:
+      http.addHeader("Content-Type", "application/json");
+      int httpResponseCode = http.POST("{\"temperature\":\"23.4\",\"humidity\":\"37.2\",\"lightintensity\":\"320.4\",\"windspeed\":\"1.23\",\"windspeed_cum\":\"1234\"}");
+     
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+        
+      // Free resources
+      http.end();
+    } else {
+      Serial.println("WiFi Disconnected");
+    }
+    lastTime = millis();
+  }
 }
 
 /*
