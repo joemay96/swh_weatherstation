@@ -48,7 +48,7 @@ int speedCum = 0;
 double speedQuot = 0;
 
 // !! Bring NodeMCU into sleep mode
-int deepSleep = 0;
+// int deepSleep = 0;
 
 // Display output
 int startState = 1;
@@ -72,7 +72,6 @@ int buttonPressed = 0;
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup(void) {
-  Serial.begin(115200);
   setupWeatherStation(); 
 }
 
@@ -80,8 +79,6 @@ void loop() {
   COUNTER++;
   if(rotaryStateChange == 1 || COUNTER > 20000) {
     resetState();
-    Serial.println(pageCounter);
-    Serial.println(pageCounter%3);
     if(pageCounter%3 == 0) {
       page1();
     } else if(pageCounter%3 == -1 || pageCounter == 2) {
@@ -105,7 +102,6 @@ void loop() {
     //!! Hier müssen z.B. noch Bildschirm resetet werden etc.
     // ESP.deepSleep(0);
   // }
-  // Serial.println(COUNTER);
 }
 
 // All setup needed for Station 
