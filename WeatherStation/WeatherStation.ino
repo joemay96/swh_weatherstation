@@ -47,7 +47,8 @@ unsigned long lastButtonPress = 0;
 int speedCum = 0;
 double speedQuot = 0;
 
-// !! Bring NodeMCU into sleep mode
+// Bring NodeMCU into sleep mode
+// https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
 // int deepSleep = 0;
 
 // Display output
@@ -101,11 +102,16 @@ void loop() {
   // Windspeed sensor
   windspeed();
   
-  // Checking for deepSleep
+  /* Checking for deepSleep
+   DeepSleep ist schwierig, da nach gewissen Anforderungen der Arduino wieder aufgeweckt werden muss, um 
+   1. den Wind zu messen
+   2. regelämßig die Daten zu checken und an die API zu senden
+   3. an und aus zu gehen, wenn der button gedrückt wird -> durch button drücken wird allerdings nur ein reset durchgeführt! 
+   -> man bräuchte einen zusätzlichen GPIO über welchen man das ganze besser steuern kann
+  */
   // if(deepSleep%2==1)
   // {
-    //!! Hier müssen z.B. noch Bildschirm resetet werden etc.
-    // ESP.deepSleep(0);
+  //   ESP.deepSleep(0);
   // }
 }
 
