@@ -62,23 +62,24 @@ float humidity = 0;
 int tempCounter = 0;
 
 int lightsensorChange = 0;
-int lightCounter = 1000;
 int lastLightsensorValue = 0;
 
 // Global counter for updating values and reprinting the screen
-int COUNTER = 10000;
+int COUNTER = 3000;
 int buttonPressed = 0;
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup(void) {
-  setupWeatherStation(); 
+  Serial.begin(115200);
+  setupWeatherStation();
 }
 
 void loop() {
   COUNTER++;
   if(rotaryStateChange == 1) {
-    resetState();
+    // Serial.println(rotaryStateChange);
+    rotaryStateChange = 0;
     if(pageCounter%3 == 0) {
       page1();
     } else if(pageCounter%3 == -1 || pageCounter == 2) {
@@ -87,16 +88,16 @@ void loop() {
       page3();
     }
   }
-  if(COUNTER > 20000) {
+  if(COUNTER > 5000) {
+    resetState();
     updateValues();
   }
-
+  // Rotary Sensor
+  rotary();
   // Temp and Humidity
   getHumidityAndTemp();
   // Lightsensor - works
   lightSensorRead();
-  // Rotary Sensor
-  rotary();
   // Windspeed sensor
   windspeed();
   
@@ -123,6 +124,7 @@ void setupWeatherStation() {
 
   /* Display */
   setupDisplay();
+  rotaryStateChange = 1;
   /* Temp und Humidiy*/
   dht.begin();
   
@@ -150,7 +152,6 @@ void setupDisplay() {
 }
 
 void resetState() {
-  rotaryStateChange = 0;
   COUNTER = 0;
   speedCum = 0;
 }
@@ -174,7 +175,7 @@ void getHumidityAndTemp() {
 void rotary() {
   rotaryCurrentState = digitalRead(ROTARY_CLK);
   if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
-    rotaryStateChange = 1;    
+    rotaryStateChange = 1;
     if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
       pageCounter--;
       rotaryCurrentDir = "CCW";
@@ -196,10 +197,14 @@ void rotary() {
 // ==> Reihenschaltung!
 void lightSensorRead() {
   if((COUNTER % 1000) == 0) {
-    lightSensorValue = analogRead(LightPin);
+    lightSensorValue = analogRead(LightPin) -25;
+    if(lightSensorValue < 0) {
+      lightSensorValue = 0;
+    }
     if(lightSensorValue > lastLightsensorValue+10 || lightSensorValue < lastLightsensorValue-10) {
       lastLightsensorValue = lightSensorValue;
     }
+    lightintensity();
   }
 }
 
@@ -307,7 +312,7 @@ void page3() {
 
 void updateValues() {
   if(pageCounter%3 == 0) {
-      // update values page 1
+      // update values page 1      
       tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
       tft.setCursor(60, 54);
       tft.print(temp);
@@ -324,6 +329,7 @@ void updateValues() {
       tft.print(lightIntensity);
     } else if (pageCounter%3 == -2 || pageCounter == 1) {
       // update values page 3
+      tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
       tft.setCursor(130, 45);
       tft.println(temp);
       tft.setCursor(130, 65);
@@ -332,6 +338,9 @@ void updateValues() {
       // vielleicht noch speedCum hier einbauen
       tft.println(speedQuot);
       tft.setCursor(80, 105);
+      // tft.setTextColor(ST7735_BLACK, ST7735_BLACK);
+      // tft.print("XXXX");
+      // tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
       tft.print(lightSensorValue);      
     }
 }
