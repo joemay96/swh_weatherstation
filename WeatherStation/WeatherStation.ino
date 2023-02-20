@@ -77,7 +77,7 @@ void setup(void) {
 
 void loop() {
   COUNTER++;
-  if(rotaryStateChange == 1 || COUNTER > 20000) {
+  if(rotaryStateChange == 1) {
     resetState();
     if(pageCounter%3 == 0) {
       page1();
@@ -87,6 +87,10 @@ void loop() {
       page3();
     }
   }
+  if(COUNTER > 20000) {
+    updateValues();
+  }
+
   // Temp and Humidity
   getHumidityAndTemp();
   // Lightsensor - works
@@ -299,4 +303,35 @@ void page3() {
   tft.println("Lightsensor:");
   tft.setCursor(80, 105);
   tft.print(lightSensorValue);      
+}
+
+void updateValues() {
+  if(pageCounter%3 == 0) {
+      // update values page 1
+      tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
+      tft.setCursor(60, 54);
+      tft.print(temp);
+      tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
+      tft.setCursor(64, 100);
+      tft.print(humidity);
+    } else if(pageCounter%3 == -1 || pageCounter == 2) {
+      // update values page 2
+      tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
+      tft.setCursor(64, 54);
+      tft.print(speedQuot);
+      tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
+      tft.setCursor(60, 100);
+      tft.print(lightIntensity);
+    } else if (pageCounter%3 == -2 || pageCounter == 1) {
+      // update values page 3
+      tft.setCursor(130, 45);
+      tft.println(temp);
+      tft.setCursor(130, 65);
+      tft.println(humidity);
+      tft.setCursor(130, 85);
+      // vielleicht noch speedCum hier einbauen
+      tft.println(speedQuot);
+      tft.setCursor(80, 105);
+      tft.print(lightSensorValue);      
+    }
 }
