@@ -81,6 +81,10 @@ float humidity = 0;
 int lastLightsensorValue = 0;
 
 // Global counter for updating values and reprinting the screen
+// Counter Mechanik und kein delay wegen des Geschwindigkeitssensors
+// Für normale Sensoren reicht ein delay von 1000-2000, allerdings kann in dieser Zeit der Geschwindigkeitssensor nicht messen und wird somit nicht nutzbar.
+// Durch den Counter behält er seine Funktionalität und die anderen Snesoren erhalten weiterhin ihr delay von ca. 1-2 sekunden
+// Eine andere, vielleicht bessere, Methode ist die Verwendung von millis(), allerdings müsste man dafür mehr Variablen verwenden, was sich aber auch im Rahmen halten sollte.
 int COUNTER = 3000;
 
 // Display setup with lib
@@ -306,7 +310,7 @@ void sendHTTPRequest() {
       http.addHeader("ww", apiKey);
 
       // Sending mean of wind sensor values, otherwise probably most of the time 0 -> its not windy specifically on the time the request is send - all other values get lost.
-      int cumMean = apiSpeedCum / (requestTime*1000);
+      int cumMean = apiSpeedCum / (requestTime/1000);
       double quotMean = apiSpeedQuot / (double)requestTime*(double)1000.0;
       apiSpeedCum = 0;
       apiSpeedQuot = 0;
