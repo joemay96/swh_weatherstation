@@ -48,6 +48,8 @@ int rotaryLastState;
 #define WINDSPEED D1 // debugging 9
 int speedCum = 0;
 double speedQuot = 0;
+int apiSpeedCum = 0;
+double apiSpeedQuot = 0;
 
 /* WiFi config */
 const char* ssid = "public-wohnhaus";//"iPhone von Josef";
@@ -58,9 +60,9 @@ const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
 unsigned int wifiTimeCheck = 0;
 // the following variables are unsigned longs because the time, measured in milliseconds, will quickly become a bigger number than can be stored in an int.
 // after 1 minute the first request is send. Than every 10 minutes
-unsigned long lastTime = 540000;
+unsigned long lastTime = 0;
 // Timer set to 10 minutes (=600000)
-unsigned long requestTime = 600000;
+unsigned long requestTime = 60000;
 IPAddress IP;
 String connectionStatus = "";
 int firstResponse = 0;
@@ -279,6 +281,8 @@ void windspeed() {
   int speed = digitalRead(WINDSPEED);
   speedCum = speedCum + speed;
   speedQuot = (double)(speedCum)/(double)1000.0; //!! vielleicht noch anpassen, wenn kostruktion steht
+  apiSpeedCum += speedCum;
+  apiSpeedQuot += speedQuot;
 }
 
 /*
@@ -300,8 +304,15 @@ void sendHTTPRequest() {
 
       http.addHeader("Content-Type", "application/json");
       http.addHeader("ww", apiKey);
+
+      // Sending mean of wind sensor values, otherwise probably most of the time 0 -> its not windy specifically on the time the request is send - all other values get lost.
+      int cumMean = apiSpeedCum / (requestTime*1000);
+      double quotMean = apiSpeedQuot / (double)requestTime*(double)1000.0;
+      apiSpeedCum = 0;
+      apiSpeedQuot = 0;
+      
       // creating the http post request
-      int httpResponseCode = http.POST("{\"temperature\":\""+String(temp)+"\",\"humidity\":\""+String(humidity)+"\",\"lightintensity\":\""+String(lightSensorValue)+"\",\"windspeed\":\""+String(speedQuot)+"\",\"windspeed_cum\":\""+String(speedCum)+"\"}");
+      int httpResponseCode = http.POST("{\"temperature\":\""+String(temp)+"\",\"humidity\":\""+String(humidity)+"\",\"lightintensity\":\""+String(lightSensorValue)+"\",\"windspeed\":\""+String(quotMean)+"\",\"windspeed_cum\":\""+String(cumMean)+"\"}");
      
       // saveing a few status codes
       secondResponse = firstResponse;
@@ -344,13 +355,13 @@ void page1() {
   tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
   tft.setCursor(60, 54);
   tft.print(temp);
-  tft.drawCircle(87, 56, 2, ST7735_YELLOW);  // print degree symbol ( ° )
-  tft.setCursor(90, 54);
+  tft.drawCircle(94, 56, 2, ST7735_YELLOW);  // print degree symbol ( ° )
+  tft.setCursor(99, 54);
   tft.print("C");
   tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
   tft.setCursor(64, 100);
   tft.print(humidity);
-  tft.setCursor(90, 100);
+  tft.setCursor(97, 100);
   tft.print("%");
 }
 
@@ -409,7 +420,7 @@ void page4() {
   tft.setTextSize(0);
   tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
   tft.setTextSize(1);
-  tft.setCursor(10, 0);
+  tft.setCursor(10, 5);
   tft.print("Wifi debugging Page");
   tft.drawFastHLine(0, 15,  tft.width(), ST7735_WHITE);
 
@@ -423,11 +434,11 @@ void page4() {
   tft.println(connectionStatus);
   tft.setCursor(5, 75);
   tft.println("1. HTTP code: ");
-  tft.setCursor(80, 75);
+  tft.setCursor(85, 75);
   tft.println(firstResponse);
   tft.setCursor(5,95);
   tft.println("2. HTTP code: ");
-  tft.setCursor(80, 95);
+  tft.setCursor(85, 95);
   tft.print(secondResponse);      
 }
 
@@ -470,9 +481,9 @@ void updateValues() {
       tft.println(IP);
       tft.setCursor(90, 50);
       tft.println(connectionStatus);
-      tft.setCursor(80, 75);
+      tft.setCursor(85, 75);
       tft.println(firstResponse);
-      tft.setCursor(80, 95);
+      tft.setCursor(85, 95);
       tft.print(secondResponse);      
     }
 }
