@@ -52,18 +52,19 @@ int speedCum = 0;
 double speedQuot = 0;
 
 // WiFi config
-const char* ssid = "iPhone von Josef";
-const char* password = "pw1234567890";
+const char* ssid = "public-wohnhaus";//"iPhone von Josef";
+const char* password = "";//"pw1234567890";
 const char* username = "ww";
 const char* apiKey = "secPW123456VerySecureWeatherStationPassword";
 const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
+unsigned int wifiTimeCheck = 0;
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
 // Timer set to 10 minutes (600000)
-//unsigned long requestTime = 600000;
+unsigned long requestTime = 600000;
 // sende request alle 10 Sekunden -> später kann das auf 600.000 gesetzt werden -> schickt Daten ale 10 Minuten
-unsigned long requestTime = 10000;
+// unsigned long requestTime = 10000;
 
 // Bring NodeMCU into sleep mode
 // https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
@@ -92,7 +93,7 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 void setup(void) {
   Serial.begin(115200);
   setupWeatherStation();
-  setupWifi();
+  setupWifi(30000);
 }
 
 void loop() {
@@ -161,19 +162,18 @@ void setupWeatherStation() {
 }
 
 // !! changing Serial to a page -- something special maybe
-void setupWifi() {
+void setupWifi(unsigned int connectionWaitingTime) {
   // Connecting to WiFi
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
-  while(WiFi.status() != WL_CONNECTED) {
+  wifiTimeCheck = millis();
+  while(WiFi.status() != WL_CONNECTED && millis() - wifiTimeCheck < connectionWaitingTime) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
- 
-  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
 
 void setupDisplay() {
@@ -233,10 +233,12 @@ void rotary() {
   delay(1);
 }
 
-// Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
-// Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
-// Es sei denn ich schalte sie alle in Reihe und der die Wiederstände werden größer wenn einzelne Sensoren verdeckt werden.
-// ==> Reihenschaltung!
+/* 
+ * Problem: bekomme ständig 1024, sobald das Licht an ist - Widerstand bringt nichts...
+ * Bringt es was die dinger in Reihe zu schalten? -> Ich glaube nicht Sinnvoll, kann aber nicht mehr als einen Sensor messen glaube ich.
+ * Es sei denn ich schalte sie alle in Reihe und der die Wiederstände werden größer wenn einzelne Sensoren verdeckt werden.
+ * ==> Reihenschaltung!
+ */
 void lightSensorRead() {
   if((COUNTER % 1000) == 0) {
     lightSensorValue = analogRead(LightPin) -25;
@@ -275,18 +277,22 @@ void windspeed() {
  * WiFi
  */
 void sendHTTPRequest() {
-  //Send an HTTP POST request every "requestTime" minutes
+  // Send an HTTP POST request every "requestTime" minutes
   if ((millis() - lastTime) > requestTime) {
     //Check WiFi connection status
     if(WiFi.status() == WL_CONNECTED){
-      WiFiClient client;
+      WiFiClientSecure client;
       HTTPClient http;
-      
+      const int port = 443; // https port
+      // => No fingerprint - pretty insecure
+      client.setInsecure();
+      client.connect(serverName, port);
       http.begin(client, serverName);
-      http.setAuthorization("ww", apiKey);
-      // If you need an HTTP request with a content type: application/json, use the following:
+
       http.addHeader("Content-Type", "application/json");
-      int httpResponseCode = http.POST("{\"temperature\":\"23.4\",\"humidity\":\"37.2\",\"lightintensity\":\"320.4\",\"windspeed\":\"1.23\",\"windspeed_cum\":\"1234\"}");
+      http.addHeader("ww", apiKey);
+      // creating the http post request
+      int httpResponseCode = http.POST("{\"temperature\":\""+temp+"\",\"humidity\":\""+humidity+"\",\"lightintensity\":\""+lightSensorValue+"\",\"windspeed\":\""+speedQuot+"\",\"windspeed_cum\":\""+speedCum+"\"}");
      
       Serial.print("HTTP Response code: ");
       Serial.println(httpResponseCode);
@@ -295,6 +301,7 @@ void sendHTTPRequest() {
       http.end();
     } else {
       Serial.println("WiFi Disconnected");
+      setupWifi(2500);
     }
     lastTime = millis();
   }
@@ -358,6 +365,31 @@ void page2() {
 }
 
 void page3() {
+  tft.fillScreen(ST7735_BLACK);
+  tft.setTextSize(0);
+  tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
+  pageHeader();
+  tft.setCursor(5,45);
+  tft.println("Temperature: ");
+  tft.setCursor(130, 45);
+  tft.println(temp);
+  tft.setCursor(5,65);
+  tft.println("Humidity: ");
+  tft.setCursor(130, 65);
+  tft.println(humidity);
+  tft.setCursor(5, 85);
+  tft.println("Windgeschwindigkeit: ");
+  tft.setCursor(130, 85);
+  // vielleicht noch speedCum hier einbauen
+  tft.println(speedQuot);
+  tft.setCursor(5,105);
+  tft.println("Lightsensor:");
+  tft.setCursor(80, 105);
+  tft.print(lightSensorValue);      
+}
+
+/* WiFi debudding Page */
+void page4() {
   tft.fillScreen(ST7735_BLACK);
   tft.setTextSize(0);
   tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
