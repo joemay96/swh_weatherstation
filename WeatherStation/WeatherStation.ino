@@ -59,8 +59,8 @@ const char* apiKey = "secPW123456VerySecureWeatherStationPassword";
 const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
 unsigned int wifiTimeCheck = 0;
 // the following variables are unsigned longs because the time, measured in milliseconds, will quickly become a bigger number than can be stored in an int.
-// after 10 seconds the first request is send. Than every 10 minutes
-unsigned long lastTime = 590000;
+// after 1 minute the first request is send. Than every 10 minutes
+unsigned long lastTime = 540000;
 // Timer set to 10 minutes (=600000)
 unsigned long requestTime = 600000;
 IPAddress IP;
@@ -308,14 +308,14 @@ void sendHTTPRequest() {
       Serial.print("HTTP Response code: ");
       Serial.println(httpResponseCode);
       // saveing a few status codes
-      firstResponse = httpResponseCode;
       secondResponse = firstResponse;
+      firstResponse = httpResponseCode;
 
       // Free resources
       http.end();
     } else {
       connectionStatus = "Disconnected";
-      setupWifi(2500);
+      setupWifi(3500);
     }
     lastTime = millis();
   }
@@ -417,21 +417,21 @@ void page4() {
   tft.print("Wifi debugging Page");
   tft.drawFastHLine(0, 15,  tft.width(), ST7735_WHITE);
 
-  tft.setCursor(5,45);
+  tft.setCursor(5,30);
   tft.println("IP: ");
-  tft.setCursor(25, 45);
+  tft.setCursor(25, 30);
   tft.println(IP);
-  tft.setCursor(5,65);
-  tft.println("Conn. Status: ");
-  tft.setCursor(100, 65);
+  tft.setCursor(5,50);
+  tft.println("WiFi Status: ");
+  tft.setCursor(90, 50);
   tft.println(connectionStatus);
-  tft.setCursor(5, 85);
+  tft.setCursor(5, 75);
   tft.println("1. HTTP code: ");
-  tft.setCursor(80, 85);
+  tft.setCursor(80, 75);
   tft.println(firstResponse);
-  tft.setCursor(5,105);
+  tft.setCursor(5,95);
   tft.println("2. HTTP code: ");
-  tft.setCursor(80, 105);
+  tft.setCursor(80, 95);
   tft.print(secondResponse);      
 }
 
@@ -470,13 +470,13 @@ void updateValues() {
     } else if (pageCounter%4 == -3 || pageCounter == 1) {
       // update values page 4
       tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
-      tft.setCursor(25, 45);
+      tft.setCursor(25, 30);
       tft.println(IP);
-      tft.setCursor(100, 65);
+      tft.setCursor(100, 50);
       tft.println(connectionStatus);
-      tft.setCursor(80, 85);
+      tft.setCursor(80, 75);
       tft.println(firstResponse);
-      tft.setCursor(80, 105);
+      tft.setCursor(80, 95);
       tft.print(secondResponse);      
     }
 }
