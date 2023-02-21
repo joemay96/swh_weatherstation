@@ -58,16 +58,15 @@ const char* username = "ww";
 const char* apiKey = "secPW123456VerySecureWeatherStationPassword";
 const char* serverName = "https://weatherstation.sharky.live/api/v1/weather";
 unsigned int wifiTimeCheck = 0;
-// the following variables are unsigned longs because the time, measured in
-// milliseconds, will quickly become a bigger number than can be stored in an int.
-unsigned long lastTime = 0;
+// the following variables are unsigned longs because the time, measured in milliseconds, will quickly become a bigger number than can be stored in an int.
+// after 10 seconds the first request is send. Than every 10 minutes
+unsigned long lastTime = 590000;
 // Timer set to 10 minutes (=600000)
 unsigned long requestTime = 600000;
-int initalRequstOnStartup = 1;
 IPAddress IP;
 String connectionStatus = "";
-int firstResponse = "";
-int secondResponse = "";
+int firstResponse = 0;
+int secondResponse = 0;
 
 // Bring NodeMCU into sleep mode
 // https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
@@ -103,13 +102,13 @@ void loop() {
   COUNTER++;
   if(rotaryStateChange == 1) {
     rotaryStateChange = 0;
-    if(pageCounter%3 == 0) {
+    if(pageCounter%4 == 0) {
       page1();
-    } else if(pageCounter%3 == -1 || pageCounter == 3) {
+    } else if(pageCounter%4 == -1 || pageCounter == 3) {
       page2();      
-    } else if (pageCounter%3 == -2 || pageCounter == 2) {
+    } else if (pageCounter%4 == -2 || pageCounter == 2) {
       page3();
-    } else if (pageCounter%3 == -3 || pageCounter == 1) {
+    } else if (pageCounter%4 == -3 || pageCounter == 1) {
       page4();
     }
   }
@@ -166,7 +165,6 @@ void setupWeatherStation() {
   rotaryLastState = digitalRead(ROTARY_CLK);
 }
 
-// !! changing Serial to a page -- something special maybe
 void setupWifi(unsigned int connectionWaitingTime) {
   // Connecting to WiFi
   WiFi.begin(ssid, password);
@@ -200,6 +198,9 @@ void setupDisplay() {
   tft.setCursor(40, 70);
   tft.println("Woman");
   tft.setTextSize(0);
+  tft.setCursor(40, 100);
+  tft.setTextSize(0);
+  tft.println("Connecting ..."); 
 }
 
 void resetState() {
@@ -287,7 +288,7 @@ void windspeed() {
  */
 void sendHTTPRequest() {
   // Send an HTTP POST request every "requestTime" minutes
-  if ((millis() - lastTime) > requestTime || initalRequstOnStartup == 1) {
+  if ((millis() - lastTime) > requestTime) {
     //Check WiFi connection status
     if(WiFi.status() == WL_CONNECTED){
       WiFiClientSecure client;
@@ -306,10 +307,10 @@ void sendHTTPRequest() {
      
       Serial.print("HTTP Response code: ");
       Serial.println(httpResponseCode);
+      // saveing a few status codes
       firstResponse = httpResponseCode;
       secondResponse = firstResponse;
 
-      initalRequstOnStartup = 0;
       // Free resources
       http.end();
     } else {
@@ -393,7 +394,6 @@ void page3() {
   tft.setCursor(5, 85);
   tft.println("Windgeschwindigkeit: ");
   tft.setCursor(130, 85);
-  // vielleicht noch speedCum hier einbauen
   tft.println(speedQuot);
   tft.setCursor(5,105);
   tft.println("Lightsensor:");
@@ -422,12 +422,12 @@ void page4() {
   tft.setCursor(25, 45);
   tft.println(IP);
   tft.setCursor(5,65);
-  tft.println("Connection Status: ");
-  tft.setCursor(130, 65);
+  tft.println("Conn. Status: ");
+  tft.setCursor(100, 65);
   tft.println(connectionStatus);
   tft.setCursor(5, 85);
   tft.println("1. HTTP code: ");
-  tft.setCursor(130, 85);
+  tft.setCursor(80, 85);
   tft.println(firstResponse);
   tft.setCursor(5,105);
   tft.println("2. HTTP code: ");
@@ -444,7 +444,7 @@ void updateValues() {
       tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
       tft.setCursor(64, 100);
       tft.print(humidity);
-    } else if(pageCounter%3 == -1 || pageCounter == 3) {
+    } else if(pageCounter%4 == -1 || pageCounter == 3) {
       // update values page 2
       tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
       tft.setCursor(64, 54);
@@ -452,7 +452,7 @@ void updateValues() {
       tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
       tft.setCursor(60, 100);
       tft.print(lightIntensity);
-    } else if (pageCounter%3 == -2 || pageCounter == 2) {
+    } else if (pageCounter%4 == -2 || pageCounter == 2) {
       // update values page 3
       tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
       tft.setCursor(130, 45);
@@ -470,17 +470,13 @@ void updateValues() {
     } else if (pageCounter%4 == -3 || pageCounter == 1) {
       // update values page 4
       tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
-      tft.setCursor(130, 45);
-      tft.println(temp);
-      tft.setCursor(130, 65);
-      tft.println(humidity);
-      tft.setCursor(130, 85);
-      // vielleicht noch speedCum hier einbauen
-      tft.println(speedQuot);
+      tft.setCursor(25, 45);
+      tft.println(IP);
+      tft.setCursor(100, 65);
+      tft.println(connectionStatus);
+      tft.setCursor(80, 85);
+      tft.println(firstResponse);
       tft.setCursor(80, 105);
-      // tft.setTextColor(ST7735_BLACK, ST7735_BLACK);
-      // tft.print("XXXX");
-      // tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
-      tft.print(lightSensorValue);      
+      tft.print(secondResponse);      
     }
 }
