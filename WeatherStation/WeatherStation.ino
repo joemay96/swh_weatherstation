@@ -27,7 +27,7 @@ Grün [LEDA]8 -> 3V
 #define TFT_MOSI D7   
 
 //TEMP
-#define T_H_PIN 10//!!1
+#define T_H_PIN 1// debugging 10
 #define DHT_TYPE DHT22
 DHT_Unified dht(T_H_PIN, DHT_TYPE);
 
@@ -39,19 +39,17 @@ String lightIntensity = "Light";
 //Rotary
 // #define ROTARY_SW // Benötigt keinen Pin, da direkt an RST angeschlossen
 #define ROTARY_DT D2
-#define ROTARY_CLK D1//!!3
+#define ROTARY_CLK 3 // debugging D1
 int pageCounter = 0;
 int rotaryCurrentState;
 int rotaryLastState;
-String rotaryCurrentDir ="";
-unsigned long lastButtonPress = 0;
 
 // Geschwindigkeitssensor
-#define WINDSPEED 9//!!D1
+#define WINDSPEED D1 // debugging 9
 int speedCum = 0;
 double speedQuot = 0;
 
-// WiFi config
+/* WiFi config */
 const char* ssid = "public-wohnhaus";//"iPhone von Josef";
 const char* password = "";//"pw1234567890";
 const char* username = "ww";
@@ -72,28 +70,21 @@ int secondResponse = 0;
 // https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
 // int deepSleep = 0;
 
-// Display output
-int startState = 1;
-
 int rotaryStateChange = 0;
-String rotaryMessage = "";
 
-int tempChange = 0;
+/* Global sensor values */
 float temp = 0;
 float humidity = 0;
-int tempCounter = 0;
 
-int lightsensorChange = 0;
 int lastLightsensorValue = 0;
 
 // Global counter for updating values and reprinting the screen
 int COUNTER = 3000;
-int buttonPressed = 0;
 
+// Display setup with lib
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup(void) {
-  Serial.begin(115200);
   setupWeatherStation();
   setupWifi(30000);
 }
@@ -140,16 +131,17 @@ void loop() {
   // }
 }
 
-// All setup needed for Station 
-// Gets called in setup method
+/*
+ * All needed setup code for  the station 
+ */
 void setupWeatherStation() {
   //********** CHANGE PIN FUNCTION  TO GPIO **********
   // https://arduino.stackexchange.com/questions/29938/how-to-i-make-the-tx-and-rx-pins-on-an-esp-8266-01-into-gpio-pins
   //GPIO 1 (TX) swap the pin to a GPIO.
-  pinMode(1, FUNCTION_0);  //!!
+  pinMode(1, FUNCTION_3);  // debugging pinMode 0
   // To swap back pinMode(1, FUNCTION_0);
   //GPIO 3 (RX) swap the pin to a GPIO.
-  pinMode(3, FUNCTION_0);  //!!
+  pinMode(3, FUNCTION_3);  // debugging pinMode 0
   // to swap back pinMode(3, FUNCTION_0);
   //**************************************************
 
@@ -165,24 +157,25 @@ void setupWeatherStation() {
   rotaryLastState = digitalRead(ROTARY_CLK);
 }
 
+/*
+ * Setup the WiFi connection
+ */
 void setupWifi(unsigned int connectionWaitingTime) {
   // Connecting to WiFi
   WiFi.begin(ssid, password);
-  Serial.println("Connecting");
   connectionStatus = "Connecting";
   wifiTimeCheck = millis();
   while(WiFi.status() != WL_CONNECTED && millis() - wifiTimeCheck < connectionWaitingTime) {    
     delay(500);
     connectionStatus += ".";
-    Serial.print(".");
   }
-  Serial.println("");
   connectionStatus = "Connected";
-  Serial.print("Connected to WiFi network with IP Address: ");
-  Serial.println(WiFi.localIP());
   IP = WiFi.localIP();
 }
 
+/* 
+ * The display setup page for booting, inital WiFi connection etc.
+ */
 void setupDisplay() {
   tft.initR(INITR_BLACKTAB);
   tft.fillScreen(ST7735_BLACK);
@@ -193,9 +186,9 @@ void setupDisplay() {
   // Print inital start
   tft.setCursor(5, 10);
   tft.setTextSize(2);
-  tft.setCursor(40, 35);
+  tft.setCursor(40, 25);
   tft.println("Weather");
-  tft.setCursor(40, 70);
+  tft.setCursor(40, 60);
   tft.println("Woman");
   tft.setTextSize(0);
   tft.setCursor(40, 100);
@@ -203,11 +196,17 @@ void setupDisplay() {
   tft.println("Connecting ..."); 
 }
 
+/*
+ * reset variables after updating all values
+ */
 void resetState() {
   COUNTER = 0;
   speedCum = 0;
 }
 
+/*
+ * BMP280 Sensor for temperature and humidity
+ */
 void getHumidityAndTemp() {
   if((COUNTER % 2000) == 0) {
     sensors_event_t event;
@@ -224,19 +223,18 @@ void getHumidityAndTemp() {
   }
 }
 
+/*
+ * Rotary encoder
+ */
 void rotary() {
   rotaryCurrentState = digitalRead(ROTARY_CLK);
   if (rotaryCurrentState != rotaryLastState  && rotaryCurrentState == 1){
     rotaryStateChange = 1;
     if (digitalRead(ROTARY_DT) != rotaryCurrentState) {
       pageCounter--;
-      rotaryCurrentDir = "CCW";
     } else {
       pageCounter++;
-      rotaryCurrentDir = "CW";
     }
-    // Ausgabe des Rotary Sensors
-    rotaryMessage = pageCounter;
   }
   // Remember last CLK state
 	rotaryLastState = rotaryCurrentState;
@@ -305,8 +303,6 @@ void sendHTTPRequest() {
       // creating the http post request
       int httpResponseCode = http.POST("{\"temperature\":\""+String(temp)+"\",\"humidity\":\""+String(humidity)+"\",\"lightintensity\":\""+String(lightSensorValue)+"\",\"windspeed\":\""+String(speedQuot)+"\",\"windspeed_cum\":\""+String(speedCum)+"\"}");
      
-      Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
       // saveing a few status codes
       secondResponse = firstResponse;
       firstResponse = httpResponseCode;
@@ -472,7 +468,7 @@ void updateValues() {
       tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
       tft.setCursor(25, 30);
       tft.println(IP);
-      tft.setCursor(100, 50);
+      tft.setCursor(90, 50);
       tft.println(connectionStatus);
       tft.setCursor(80, 75);
       tft.println(firstResponse);
