@@ -61,10 +61,13 @@ unsigned int wifiTimeCheck = 0;
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
+// Timer set to 10 minutes (=600000)
 unsigned long requestTime = 600000;
-// sende request alle 10 Sekunden -> später kann das auf 600.000 gesetzt werden -> schickt Daten ale 10 Minuten
-// unsigned long requestTime = 10000;
+int initalRequstOnStartup = 1;
+IPAddress IP;
+String connectionStatus = "";
+int firstResponse = "";
+int secondResponse = "";
 
 // Bring NodeMCU into sleep mode
 // https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
@@ -102,10 +105,12 @@ void loop() {
     rotaryStateChange = 0;
     if(pageCounter%3 == 0) {
       page1();
-    } else if(pageCounter%3 == -1 || pageCounter == 2) {
+    } else if(pageCounter%3 == -1 || pageCounter == 3) {
       page2();      
-    } else if (pageCounter%3 == -2 || pageCounter == 1) {
+    } else if (pageCounter%3 == -2 || pageCounter == 2) {
       page3();
+    } else if (pageCounter%3 == -3 || pageCounter == 1) {
+      page4();
     }
   }
   if(COUNTER > 5000) {
@@ -166,14 +171,18 @@ void setupWifi(unsigned int connectionWaitingTime) {
   // Connecting to WiFi
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
+  connectionStatus = "Connecting";
   wifiTimeCheck = millis();
-  while(WiFi.status() != WL_CONNECTED && millis() - wifiTimeCheck < connectionWaitingTime) {
+  while(WiFi.status() != WL_CONNECTED && millis() - wifiTimeCheck < connectionWaitingTime) {    
     delay(500);
+    connectionStatus += ".";
     Serial.print(".");
   }
   Serial.println("");
+  connectionStatus = "Connected";
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+  IP = WiFi.localIP();
 }
 
 void setupDisplay() {
@@ -278,29 +287,33 @@ void windspeed() {
  */
 void sendHTTPRequest() {
   // Send an HTTP POST request every "requestTime" minutes
-  if ((millis() - lastTime) > requestTime) {
+  if ((millis() - lastTime) > requestTime || initalRequstOnStartup == 1) {
     //Check WiFi connection status
     if(WiFi.status() == WL_CONNECTED){
       WiFiClientSecure client;
       HTTPClient http;
-      const int port = 443; // https port
+      const int port = 443; // using https port - otherwise 301 response
       // => No fingerprint - pretty insecure
       client.setInsecure();
       client.connect(serverName, port);
+      connectionStatus = "Connected";
       http.begin(client, serverName);
 
       http.addHeader("Content-Type", "application/json");
       http.addHeader("ww", apiKey);
       // creating the http post request
-      int httpResponseCode = http.POST("{\"temperature\":\""+temp+"\",\"humidity\":\""+humidity+"\",\"lightintensity\":\""+lightSensorValue+"\",\"windspeed\":\""+speedQuot+"\",\"windspeed_cum\":\""+speedCum+"\"}");
+      int httpResponseCode = http.POST("{\"temperature\":\""+String(temp)+"\",\"humidity\":\""+String(humidity)+"\",\"lightintensity\":\""+String(lightSensorValue)+"\",\"windspeed\":\""+String(speedQuot)+"\",\"windspeed_cum\":\""+String(speedCum)+"\"}");
      
       Serial.print("HTTP Response code: ");
       Serial.println(httpResponseCode);
-        
+      firstResponse = httpResponseCode;
+      secondResponse = firstResponse;
+
+      initalRequstOnStartup = 0;
       // Free resources
       http.end();
     } else {
-      Serial.println("WiFi Disconnected");
+      connectionStatus = "Disconnected";
       setupWifi(2500);
     }
     lastTime = millis();
@@ -388,33 +401,42 @@ void page3() {
   tft.print(lightSensorValue);      
 }
 
-/* WiFi debudding Page */
+/* 
+ * WiFi debudding Page 
+ * Data:
+ * - IP-Adress
+ * - Connection Status
+ * - last HTTP Request
+ */
 void page4() {
   tft.fillScreen(ST7735_BLACK);
   tft.setTextSize(0);
   tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
-  pageHeader();
+  tft.setTextSize(1);
+  tft.setCursor(10, 0);
+  tft.print("Wifi debugging Page");
+  tft.drawFastHLine(0, 15,  tft.width(), ST7735_WHITE);
+
   tft.setCursor(5,45);
-  tft.println("Temperature: ");
-  tft.setCursor(130, 45);
-  tft.println(temp);
+  tft.println("IP: ");
+  tft.setCursor(25, 45);
+  tft.println(IP);
   tft.setCursor(5,65);
-  tft.println("Humidity: ");
+  tft.println("Connection Status: ");
   tft.setCursor(130, 65);
-  tft.println(humidity);
+  tft.println(connectionStatus);
   tft.setCursor(5, 85);
-  tft.println("Windgeschwindigkeit: ");
+  tft.println("1. HTTP code: ");
   tft.setCursor(130, 85);
-  // vielleicht noch speedCum hier einbauen
-  tft.println(speedQuot);
+  tft.println(firstResponse);
   tft.setCursor(5,105);
-  tft.println("Lightsensor:");
+  tft.println("2. HTTP code: ");
   tft.setCursor(80, 105);
-  tft.print(lightSensorValue);      
+  tft.print(secondResponse);      
 }
 
 void updateValues() {
-  if(pageCounter%3 == 0) {
+  if(pageCounter%4 == 0) {
       // update values page 1      
       tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
       tft.setCursor(60, 54);
@@ -422,7 +444,7 @@ void updateValues() {
       tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
       tft.setCursor(64, 100);
       tft.print(humidity);
-    } else if(pageCounter%3 == -1 || pageCounter == 2) {
+    } else if(pageCounter%3 == -1 || pageCounter == 3) {
       // update values page 2
       tft.setTextColor(ST7735_YELLOW, ST7735_BLACK);
       tft.setCursor(64, 54);
@@ -430,8 +452,23 @@ void updateValues() {
       tft.setTextColor(ST7735_MAGENTA, ST7735_BLACK);
       tft.setCursor(60, 100);
       tft.print(lightIntensity);
-    } else if (pageCounter%3 == -2 || pageCounter == 1) {
+    } else if (pageCounter%3 == -2 || pageCounter == 2) {
       // update values page 3
+      tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
+      tft.setCursor(130, 45);
+      tft.println(temp);
+      tft.setCursor(130, 65);
+      tft.println(humidity);
+      tft.setCursor(130, 85);
+      // vielleicht noch speedCum hier einbauen
+      tft.println(speedQuot);
+      tft.setCursor(80, 105);
+      // tft.setTextColor(ST7735_BLACK, ST7735_BLACK);
+      // tft.print("XXXX");
+      // tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
+      tft.print(lightSensorValue);      
+    } else if (pageCounter%4 == -3 || pageCounter == 1) {
+      // update values page 4
       tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
       tft.setCursor(130, 45);
       tft.println(temp);
