@@ -480,7 +480,7 @@ void updateValues() {
       tft.print(lightSensorValue);      
     } else if (pageCounter%4 == -3 || pageCounter == 1) {
       // update values page 4
-      tft.setTextColor(ST7735_WHITE, ST7735_BLACK);
+      tft.setTextColor(ST7735_WHITE, ST7735_BLACK); 
       tft.setCursor(25, 30);
       tft.println(IP);
       tft.setCursor(90, 50);
